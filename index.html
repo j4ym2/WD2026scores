@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Cup Dashboard & Sweepstakes</title>
+    <style>
+        :root {
+            --primary: #0d1b2a;
+            --secondary: #1b263b;
+            --accent: #e0e1dd;
+            --text: #ffffff;
+            --card-bg: #415a77;
+            --highlight: #e9c46a;
+            --toggle-bg: #2a3a4d;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--primary);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        /* Sweepstakes Panel Styles */
+        .sweep-container {
+            max-width: 1200px;
+            margin: 0 auto 30px auto;
+            background: var(--secondary);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .sweep-title {
+            margin-top: 0;
+            font-size: 1.3rem;
+            border-bottom: 2px solid var(--card-bg);
+            padding-bottom: 8px;
+            text-align: center;
+            color: var(--highlight);
+        }
+        .sweep-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .sweep-card {
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .sweep-card .owner-name {
+            font-weight: bold;
+            color: var(--highlight);
+            font-size: 1rem;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .pot-line {
+            display: flex;
+            justify-content: space-between;
+            opacity: 0.9;
+            margin: 2px 0;
+        }
+        .pot-label { font-size: 0.75rem; opacity: 0.6; text-transform: uppercase;}
+
+        /* Match Display & Collapsible Container Styles */
+        .stage-section {
+            max-width: 1200px;
+            margin: 0 auto 40px auto;
+        }
+        .stage-title {
+            background-color: var(--secondary);
+            padding: 10px 20px;
+            border-radius: 6px;
+            border-left: 5px solid #778da9;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Toggle Header Bars */
+        .status-toggle-header {
+            background-color: var(--toggle-bg);
+            padding: 12px 20px;
+            margin: 10px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 0.95rem;
+            border: 1px solid rgba(255,255,255,0.05);
+            user-select: none;
+        }
+        .status-toggle-header:hover {
+            background-color: var(--secondary);
+        }
+        .status-toggle-header::after {
+            content: '▼';
+            font-size: 0.8rem;
+            transition: transform 0.2s ease;
+        }
+        .status-toggle-header.collapsed::after {
+            transform: rotate(-90deg);
+        }
+        
+        .matches-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 15px;
+            padding: 10px 0 20px 0;
+        }
+        .matches-grid.hidden {
+            display: none;
+        }
+        
+        .match-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .match-status {
+            font-size: 0.8rem;
+            text-align: center;
+            opacity: 0.8;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .team-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 1.1rem;
+        }
+        .team-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .family-tag {
+            font-size: 0.85rem;
+            background: var(--primary);
+            color: var(--highlight);
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .team-flag {
+            width: 24px;
+            height: 16px;
+            object-fit: cover;
+            border-radius: 2px;
+            background: #fff;
+        }
+        .score {
+            font-weight: bold;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            min-width: 20px;
+            text-align: center;
+        }
+        .loading, .error {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-top: 50px;
+        }
+        .error { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🏆 World Cup Sweepstakes & Scores</h1>
+    </header>
+
+    <!-- Sweepstakes Tracker Top Bar -->
+    <div class="sweep-container">
+        <h2 class="sweep-title">🎯 Family Sweepstakes Selections</h2>
+        <div class="sweep-grid" id="sweepstakesGrid">
+            <!-- Dynamically populated -->
+        </div>
+    </div>
+
+    <div id="content">
+        <div class="loading">Loading World Cup scores via secure proxy...</div>
+    </div>
+
+    <script>
+        const WORKER_URL = 'https://wc2026jmz.jamesfares.workers.dev/';
+
+        const sweepstakesData = [
+            { name:"Eve",    pot1:"Morocco",     pot2:"Egypt",        pot3:"Tunisia",        paid:true },
+            { name:"Waz",    pot1:"Argentina",   pot2:"Canada",       pot3:"Jordan",         paid:true },
+            { name:"Hayden", pot1:"Portugal",    pot2:"Ivory Coast",  pot3:"Uzbekistan",     paid:true },
+            { name:"James",  pot1:"Belgium",     pot2:"Turkey",       pot3:"Paraguay",       paid:true },
+            { name:"Erin",   pot1:"Croatia",     pot2:"Japan",        pot3:"DR Congo",       paid:true },
+            { name:"Leanne", pot1:"Switzerland", pot2:"Scotland",     pot3:"Qatar",          paid:true },
+            { name:"Levi",   pot1:"France",      pot2:"Norway",       pot3:"New Zealand",    paid:true },
+            { name:"Zara",   pot1:"USA",         pot2:"Senegal",      pot3:"Haiti",          paid:true },
+            { name:"Steve",  pot1:"Brazil",      pot2:"Algeria",      pot3:"Saudi Arabia",   paid:true },
+            { name:"Oscar",  pot1:"Uruguay",     pot2:"Australia",    pot3:"Iraq",           paid:true },
+            { name:"Nikki",  pot1:"Netherlands", pot2:"Iran",         pot3:"Bosnia & Herz.", paid:true },
+            { name:"Jules",  pot1:"Mexico",      pot2:"Ecuador",      pot3:"Czechia",        paid:true },
+            { name:"Jenna",  pot1:"Spain",       pot2:"South Korea",  pot3:"Cape Verde",     paid:true },
+            { name:"Mick",   pot1:"Colombia",    pot2:"Austria",      pot3:"Curaçao",        paid:true },
+            { name:"Kayla",  pot1:"England",     pot2:"South Africa", pot3:"Sweden",         paid:true },
+            { name:"Archie", pot1:"Germany",     pot2:"Panama",       pot3:"Ghana",          paid:true }
+        ];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            renderSweepstakesPanel();
+            fetchWorldCupData();
+        });
+
+        function toggleGrid(headerElement, gridElement) {
+            if (gridElement.classList.contains('hidden')) {
+                gridElement.classList.remove('hidden');
+                headerElement.classList.remove('collapsed');
+            } else {
+                gridElement.classList.add('hidden');
+                headerElement.classList.add('collapsed');
+            }
+        }
+
+        function getTeamOwner(apiName) {
+            if (!apiName) return '';
+            const nameLower = apiName.toLowerCase();
+            
+            const found = sweepstakesData.find(person => {
+                const p1 = person.pot1.toLowerCase();
+                const p2 = person.pot2.toLowerCase();
+                const p3 = person.pot3.toLowerCase();
+                
+                return nameLower.includes(p1) || p1.includes(nameLower) ||
+                       nameLower.includes(p2) || p2.includes(nameLower) ||
+                       nameLower.includes(p3) || p3.includes(nameLower) ||
+                       (nameLower === 'united states' && p1 === 'usa') ||
+                       (nameLower === 'congo dr' && p3 === 'dr congo') ||
+                       (nameLower.includes('bosnia') && p3.includes('bosnia'));
+            });
+            
+            return found ? `<span class="family-tag">${found.name}</span>` : '';
+        }
+
+        function renderSweepstakesPanel() {
+            const grid = document.getElementById('sweepstakesGrid');
+            grid.innerHTML = '';
+            
+            sweepstakesData.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'sweep-card';
+                card.innerHTML = `
+                    <span class="owner-name">${p.name}</span>
+                    <div class="pot-line"><span class="pot-label">Pot 1:</span> <span>${p.pot1}</span></div>
+                    <div class="pot-line"><span class="pot-label">Pot 2:</span> <span>${p.pot2}</span></div>
+                    <div class="pot-line"><span class="pot-label">Pot 3:</span> <span>${p.pot3}</span></div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        async function fetchWorldCupData() {
+            const contentDiv = document.getElementById('content');
+
+            try {
+                const response = await fetch(WORKER_URL);
+                if (!response.ok) throw new Error(`Worker Error: ${response.status}`);
+
+                const data = await response.json();
+                renderMatches(data.matches);
+            } catch (error) {
+                contentDiv.innerHTML = `
+                    <div class="error">
+                        <p>Error loading data from Cloudflare Worker.</p>
+                        <small>${error.message}</small>
+                    </div>`;
+            }
+        }
+
+        function createMatchCard(match) {
+            const card = document.createElement('div');
+            card.className = 'match-card';
+
+            const homeScore = match.score.fullTime.home !== null ? match.score.fullTime.home : '-';
+            const awayScore = match.score.fullTime.away !== null ? match.score.fullTime.away : '-';
+            
+            let penaltyString = "";
+            if (match.score.penalties && match.score.penalties.home !== null) {
+                penaltyString = ` (Pens: ${match.score.penalties.home}-${match.score.penalties.away})`;
+            }
+
+            const homeFlag = match.homeTeam.crest ? `<img class="team-flag" src="${match.homeTeam.crest}" alt="">` : '';
+            const awayFlag = match.awayTeam.crest ? `<img class="team-flag" src="${match.awayTeam.crest}" alt="">` : '';
+
+            const homeOwner = getTeamOwner(match.homeTeam.name);
+            const awayOwner = getTeamOwner(match.awayTeam.name);
+
+            card.innerHTML = `
+                <div class="match-status">${match.status}${penaltyString}</div>
+                <div class="team-row">
+                    <span class="team-name">${homeFlag} ${match.homeTeam.shortName || match.homeTeam.name || 'TBD'} ${homeOwner}</span>
+                    <span class="score">${homeScore}</span>
+                </div>
+                <div class="team-row">
+                    <span class="team-name">${awayFlag} ${match.awayTeam.shortName || match.awayTeam.name || 'TBD'} ${awayOwner}</span>
+                    <span class="score">${awayScore}</span>
+                </div>
+            `;
+            return card;
+        }
+
+        function renderMatches(matches) {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = ''; 
+
+            if (!matches || matches.length === 0) {
+                contentDiv.innerHTML = '<div class="loading">No matches found for this tournament.</div>';
+                return;
+            }
+
+            // Process newest matches first
+            matches.reverse();
+
+            // Group everything by stage name
+            const stages = {};
+            matches.forEach(match => {
+                let stageName = match.stage.replace(/_/g, ' ');
+                if (match.group) stageName += ` - ${match.group.replace(/_/g, ' ')}`;
+
+                if (!stages[stageName]) stages[stageName] = [];
+                stages[stageName].push(match);
+            });
+
+            for (const [stage, stageMatches] of Object.entries(stages)) {
+                // Check if this entire stage contains nothing but empty placeholder games
+                // (e.g., neither team name is set yet)
+                const hasValidTeams = stageMatches.some(m => 
+                    (m.homeTeam && (m.homeTeam.name || m.homeTeam.shortName)) || 
+                    (m.awayTeam && (m.awayTeam.name || m.awayTeam.shortName))
+                );
+
+                // If it's a completely empty future stage bracket, skip rendering entirely
+                if (!hasValidTeams) {
+                    continue;
+                }
+
+                const stageSection = document.createElement('div');
+                stageSection.className = 'stage-section';
+
+                const title = document.createElement('h2');
+                title.className = 'stage-title';
+                title.textContent = stage;
+                stageSection.appendChild(title);
+
+                const finishedMatches = stageMatches.filter(m => m.status === 'FINISHED');
+                const scheduledMatches = stageMatches.filter(m => m.status === 'SCHEDULED');
+                const liveMatches = stageMatches.filter(m => m.status !== 'FINISHED' && m.status !== 'SCHEDULED');
+
+                // 1. Live Matches (Always Open)
+                if (liveMatches.length > 0) {
+                    const activeGrid = document.createElement('div');
+                    activeGrid.className = 'matches-grid';
+                    liveMatches.forEach(m => activeGrid.appendChild(createMatchCard(m)));
+                    stageSection.appendChild(activeGrid);
+                }
+
+                // 2. Finished Matches (Collapsible)
+                if (finishedMatches.length > 0) {
+                    const toggleHeader = document.createElement('div');
+                    toggleHeader.className = 'status-toggle-header collapsed';
+                    toggleHeader.textContent = `Show Finished Matches (${finishedMatches.length})`;
+                    
+                    const finishedGrid = document.createElement('div');
+                    finishedGrid.className = 'matches-grid hidden';
+                    finishedMatches.forEach(m => finishedGrid.appendChild(createMatchCard(m)));
+                    
+                    toggleHeader.addEventListener('click', () => {
+                        toggleGrid(toggleHeader, finishedGrid);
+                    });
+                    
+                    stageSection.appendChild(toggleHeader);
+                    stageSection.appendChild(finishedGrid);
+                }
+
+                // 3. Scheduled Matches (Collapsible)
+                if (scheduledMatches.length > 0) {
+                    const toggleHeader = document.createElement('div');
+                    toggleHeader.className = 'status-toggle-header collapsed';
+                    toggleHeader.textContent = `Show Scheduled Upcoming Matches (${scheduledMatches.length})`;
+                    
+                    const scheduledGrid = document.createElement('div');
+                    scheduledGrid.className = 'matches-grid hidden';
+                    scheduledMatches.forEach(m => scheduledGrid.appendChild(createMatchCard(m)));
+                    
+                    toggleHeader.addEventListener('click', () => {
+                        toggleGrid(toggleHeader, scheduledGrid);
+                    });
+                    
+                    stageSection.appendChild(toggleHeader);
+                    stageSection.appendChild(scheduledGrid);
+                }
+
+                contentDiv.appendChild(stageSection);
+            }
+
+            // Fallback check if absolutely everything is hidden/filtered out
+            if (contentDiv.children.length === 0) {
+                contentDiv.innerHTML = '<div class="loading">No active match data to display yet.</div>';
+            }
+        }
+    </script>
+</body>
+</html>
